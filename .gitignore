@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# Virtualenv
+venv/
+env/
+
+# Logs & reports
+report.json
+
+# Secrets / tokens
+tokens.json
+bac-analyzer/keycloak-lab/keycloak-tokens.yaml
+fetch_keycloak_tokens.py
+
+# IDE files
+.vscode/
+.idea/
