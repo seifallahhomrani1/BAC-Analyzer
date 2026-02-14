@@ -1,0 +1,8 @@
+endpoints:
+  - name: get_users
+    method: GET
+    url: http://localhost:1234/api/users
+
+  - name: delete_user
+    method: DELETE
+    url: http://localhost:1234/api/users/1

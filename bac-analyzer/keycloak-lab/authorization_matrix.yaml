@@ -1,0 +1,18 @@
+# Expected authorization for Keycloak lab Demo API.
+# Manager is set to deny delete_user so the analyzer can detect the intentional vuln
+# (Demo API incorrectly allows manager to DELETE).
+matrix:
+  admin:
+    get_users: allow
+    delete_user: allow
+    get_profile_self: allow
+
+  manager:
+    get_users: allow
+    delete_user: deny
+    get_profile_self: deny
+
+  user:
+    get_users: deny
+    delete_user: deny
+    get_profile_self: allow

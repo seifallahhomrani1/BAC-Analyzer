@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    command: ["start", "--import-realm", "--http-port=8080"]
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: adminpassword
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "49123:8080"
+    volumes:
+      - ./realm-export.json:/opt/keycloak/data/import/bac-lab-realm.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 2>/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: "90s"
+
+  keycloak-init:
+    build: ./keycloak-init
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: "no"
+
+  demo_api:
+    build: ./demo_api
+    environment:
+      FLASK_PORT: "50111"
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: bac-lab
+    ports:
+      - "50111:50111"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
+volumes:
+  postgres_data: {}

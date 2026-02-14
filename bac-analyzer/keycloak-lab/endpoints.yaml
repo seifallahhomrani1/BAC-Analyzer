@@ -1,0 +1,13 @@
+# Demo API endpoints (Keycloak lab on port 50111)
+endpoints:
+  - name: get_users
+    method: GET
+    url: http://localhost:50111/api/users
+
+  - name: delete_user
+    method: DELETE
+    url: http://localhost:50111/api/users/1
+
+  - name: get_profile_self
+    method: GET
+    url: http://localhost:50111/api/profile/self

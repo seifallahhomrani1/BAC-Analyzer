@@ -1,0 +1,44 @@
+{
+  "id": "bac-lab",
+  "realm": "bac-lab",
+  "notBefore": 0,
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "permanentLockout": false,
+  "requiredCredentials": ["password"],
+  "roles": {
+    "realm": [
+      {"name": "admin", "description": "Admin role"},
+      {"name": "manager", "description": "Manager role"},
+      {"name": "user", "description": "User role"}
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "bac-analyzer",
+      "name": "bac-analyzer",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bac-secret-123",
+      "redirectUris": ["*"],
+      "webOrigins": [],
+      "publicClient": false,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true,
+      "attributes": {}
+    }
+  ]
+}

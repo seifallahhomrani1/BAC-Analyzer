@@ -1,0 +1,12 @@
+matrix:
+  admin:
+    get_users: allow
+    delete_user: allow
+
+  manager:
+    get_users: deny
+    delete_user: deny
+
+  user:
+    get_users: deny
+    delete_user: deny
