@@ -142,20 +142,6 @@ docker-compose up --build
 - **Intentional flaw**: `manager` role can DELETE users (should be admin-only)
 - Pre-configured users: `admin_user`/`admin_pass`, `manager_user`/`manager_pass`, `normal_user`/`user_pass`
 
-## Security Notes
-
-- 🔒 Never run against production systems without explicit authorization
-- 🔒 Tokens are stored in plaintext files – use `.gitignore` in real engagements
-- 🔒 Proxy mode (`--proxy`) allows traffic inspection but may expose sensitive tokens in Burp history
-
-## Philosophy
-
-> "Keep it simple. No async. No frameworks. Just clear, readable code that finds real authorization bugs."
-
-— Minimalist security tooling for red teams and AppSec engineers
-
-## License
-
 MIT License – See [LICENSE](LICENSE) for details.
 
 ---
