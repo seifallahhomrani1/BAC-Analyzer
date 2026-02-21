@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BAC Analyzer - Broken Access Control Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --danger-color: #e63946;
+            --success-color: #4cc9f0;
+            --warning-color: #fca311;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+        }
+        
+        .card {
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .header-bg {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border-radius: 10px 10px 0 0 !important;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+        
+        .badge-danger {
+            background-color: var(--danger-color);
+        }
+        
+        .badge-success {
+            background-color: #2a9d8f;
+        }
+        
+        .badge-warning {
+            background-color: var(--warning-color);
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        }
+        
+        .finding-card {
+            border-left: 4px solid var(--danger-color);
+        }
+        
+        .mismatch-row {
+            background-color: #fff9db;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background-color: #e0e7ff;
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+        
+        .config-section {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .endpoint-item {
+            border-left: 3px solid #dee2e6;
+            padding-left: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .endpoint-item.allow {
+            border-left-color: #2a9d8f;
+        }
+        
+        .endpoint-item.deny {
+            border-left-color: var(--danger-color);
+        }
+        
+        .role-badge {
+            font-size: 0.8em;
+        }
+        
+        .summary-card {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .summary-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .summary-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-shield-alt me-2"></i>BAC Analyzer
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#"><i class="fas fa-home me-1"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#configModal"><i class="fas fa-cog me-1"></i> Config</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#"><i class="fas fa-question-circle me-1"></i> Help</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <h1><i class="fas fa-user-secret text-danger me-2"></i>Broken Access Control Scanner</h1>
+                <p class="lead">Identify authorization matrix misconfigurations and privilege escalation vulnerabilities</p>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-4" id="summarySection" style="display: none;">
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="summary-number" id="testedRoles">0</div>
+                    <div class="summary-label">Tested Roles</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="summary-number" id="testedEndpoints">0</div>
+                    <div class="summary-label">Tested Endpoints</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="summary-number" id="totalChecks">0</div>
+                    <div class="summary-label">Total Checks</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card summary-card">
+                    <div class="summary-number text-danger" id="mismatchesCount">0</div>
+                    <div class="summary-label">Mismatches Found</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scan Controls -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header header-bg">
+                        <h5 class="mb-0"><i class="fas fa-play-circle me-2"></i>Scan Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Base URL (optional)</label>
+                                    <input type="url" class="form-control" id="baseUrlInput" placeholder="https://api.example.com">
+                                    <div class="form-text">Leave empty to use URLs from endpoints configuration</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Proxy URL (optional)</label>
+                                    <input type="url" class="form-control" id="proxyInput" placeholder="http://127.0.0.1:8080">
+                                    <div class="form-text">For intercepting traffic with tools like Burp Suite</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3 form-check">
+                                    <input type="checkbox" class="form-check-input" id="runDiffCheck">
+                                    <label class="form-check-label" for="runDiffCheck">
+                                        Run Differential Analysis
+                                    </label>
+                                    <div class="form-text">Compare access patterns between different roles</div>
+                                </div>
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <button class="btn btn-secondary me-md-2" type="button" id="loadDefaultBtn">
+                                        <i class="fas fa-download me-1"></i>Load Defaults
+                                    </button>
+                                    <button class="btn btn-primary" type="button" id="startScanBtn">
+                                        <i class="fas fa-bolt me-1"></i>Start Scan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div class="row mb-4" id="progressSection" style="display: none;">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Scanning...</span>
+                        </div>
+                        <h5 class="mt-2">Running BAC Analysis</h5>
+                        <p>Please wait while the scan is in progress...</p>
+                        <div class="progress mt-3">
+                            <div class="progress-bar" role="progressbar" style="width: 50%" id="scanProgress"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Tabs -->
+        <div class="row" id="resultsSection" style="display: none;">
+            <div class="col-md-12">
+                <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="mismatches-tab" data-bs-toggle="tab" data-bs-target="#mismatches" type="button" role="tab">
+                            <i class="fas fa-exclamation-triangle me-1 text-danger"></i>Mismatches <span class="badge bg-danger" id="mismatchesBadge">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="differential-tab" data-bs-toggle="tab" data-bs-target="#differential" type="button" role="tab">
+                            <i class="fas fa-balance-scale me-1 text-info"></i>Differential Findings <span class="badge bg-info" id="differentialBadge">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="raw-tab" data-bs-toggle="tab" data-bs-target="#raw" type="button" role="tab">
+                            <i class="fas fa-code me-1 text-muted"></i>Raw Output
+                        </button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content" id="resultsTabContent">
+                    <div class="tab-pane fade show active" id="mismatches" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-header header-bg">
+                                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Authorization Matrix Mismatches</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="mismatchesList">
+                                    <!-- Mismatches will be populated here -->
+                                </div>
+                                <div id="noMismatchesMessage" class="text-center py-4" style="display: none;">
+                                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                    <h5>No Mismatches Found</h5>
+                                    <p class="text-muted">All authorization checks passed according to the matrix</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="differential" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-header header-bg">
+                                <h5 class="mb-0"><i class="fas fa-search me-2"></i>Differential Analysis Findings</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="differentialList">
+                                    <!-- Differential findings will be populated here -->
+                                </div>
+                                <div id="noDifferentialMessage" class="text-center py-4" style="display: none;">
+                                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                                    <h5>No Differential Findings</h5>
+                                    <p class="text-muted">No unusual access patterns detected between roles</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="tab-pane fade" id="raw" role="tabpanel">
+                        <div class="card mt-3">
+                            <div class="card-header header-bg">
+                                <h5 class="mb-0"><i class="fas fa-terminal me-2"></i>Scan Output</h5>
+                            </div>
+                            <div class="card-body">
+                                <pre id="rawOutput" class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Modal -->
+    <div class="modal fade" id="configModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header header-bg">
+                    <h5 class="modal-title"><i class="fas fa-cog me-2"></i>Configuration Editor</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tokensConfig">Tokens</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#endpointsConfig">Endpoints</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#matrixConfig">Authorization Matrix</button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="tokensConfig">
+                            <div class="mb-3">
+                                <label class="form-label">Tokens Configuration (JSON)</label>
+                                <textarea class="form-control config-section" id="tokensTextarea" rows="10" spellcheck="false"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="endpointsConfig">
+                            <div class="mb-3">
+                                <label class="form-label">Endpoints Configuration (YAML)</label>
+                                <textarea class="form-control config-section" id="endpointsTextarea" rows="10" spellcheck="false"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="matrixConfig">
+                            <div class="mb-3">
+                                <label class="form-label">Authorization Matrix (YAML)</label>
+                                <textarea class="form-control config-section" id="matrixTextarea" rows="10" spellcheck="false"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveConfigBtn">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-light py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-shield-alt me-2"></i>BAC Analyzer</h5>
+                    <p class="text-muted">Detecting Broken Access Control vulnerabilities since 2023</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="text-muted">API Security Testing Tool</p>
+                    <p class="text-muted">v1.0.0</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // API base URL
+        const API_BASE_URL = '/api';
+        
+        // DOM Elements
+        const startScanBtn = document.getElementById('startScanBtn');
+        const loadDefaultBtn = document.getElementById('loadDefaultBtn');
+        const baseUrlInput = document.getElementById('baseUrlInput');
+        const proxyInput = document.getElementById('proxyInput');
+        const runDiffCheck = document.getElementById('runDiffCheck');
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDefaultConfig();
+            
+            // Event listeners
+            startScanBtn.addEventListener('click', startScan);
+            loadDefaultBtn.addEventListener('click', loadDefaultConfig);
+            document.getElementById('saveConfigBtn').addEventListener('click', saveConfig);
+        });
+        
+        // Load default configuration
+        async function loadDefaultConfig() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/config`);
+                const config = await response.json();
+                
+                if (config.tokens) {
+                    document.getElementById('tokensTextarea').value = JSON.stringify(config.tokens, null, 2);
+                }
+                
+                if (config.endpoints) {
+                    // Convert endpoints array to YAML format
+                    const endpointsYaml = `endpoints:\n${config.endpoints.map(ep => 
+                        `  - name: "${ep.name}"\n    method: ${ep.method || 'GET'}\n    url: "${ep.url}"\n    ${ep.body ? `body: ${JSON.stringify(ep.body)}\n    ` : ''}`
+                    ).join('')}`;
+                    document.getElementById('endpointsTextarea').value = endpointsYaml;
+                }
+                
+                if (config.matrix) {
+                    const matrixYaml = `matrix:\n${Object.keys(config.matrix).map(role => 
+                        `  ${role}:\n${Object.keys(config.matrix[role]).map(endpoint => 
+                            `    ${endpoint}: ${config.matrix[role][endpoint]}\n`
+                        ).join('')}`
+                    ).join('')}`;
+                    document.getElementById('matrixTextarea').value = matrixYaml;
+                }
+                
+                console.log('Default configuration loaded');
+            } catch (error) {
+                console.error('Error loading default config:', error);
+                alert('Error loading default configuration');
+            }
+        }
+        
+        // Save configuration changes
+        function saveConfig() {
+            // In a real implementation, this would save to backend
+            alert('Configuration saved successfully!');
+            bootstrap.Modal.getInstance(document.getElementById('configModal')).hide();
+        }
+        
+        // Start a new scan
+        async function startScan() {
+            // Show progress indicator
+            document.getElementById('progressSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('summarySection').style.display = 'none';
+            
+            // Update progress bar
+            document.getElementById('scanProgress').style.width = '30%';
+            
+            try {
+                // Get configuration from textareas
+                const tokensText = document.getElementById('tokensTextarea').value;
+                const endpointsText = document.getElementById('endpointsTextarea').value;
+                
+                // Parse tokens JSON
+                let tokens;
+                try {
+                    tokens = JSON.parse(tokensText);
+                } catch (e) {
+                    throw new Error('Invalid tokens JSON: ' + e.message);
+                }
+                
+                // Parse endpoints YAML (simplified - in a real app we'd use js-yaml library)
+                // For now, we'll extract endpoint objects manually from the YAML text
+                const endpoints = parseEndpointsFromYaml(endpointsText);
+                
+                // Prepare scan parameters
+                const scanParams = {
+                    tokens: tokens,
+                    endpoints: endpoints,
+                    run_diff: runDiffCheck.checked,
+                };
+                
+                if (baseUrlInput.value.trim()) {
+                    scanParams.base_url = baseUrlInput.value.trim();
+                }
+                
+                if (proxyInput.value.trim()) {
+                    scanParams.proxy = proxyInput.value.trim();
+                }
+                
+                // Update progress bar
+                document.getElementById('scanProgress').style.width = '60%';
+                
+                // Make API call
+                const response = await fetch(`${API_BASE_URL}/scan`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(scanParams)
+                });
+                
+                const result = await response.json();
+                
+                // Update progress bar
+                document.getElementById('scanProgress').style.width = '100%';
+                
+                // Display results
+                displayResults(result);
+            } catch (error) {
+                console.error('Scan error:', error);
+                document.getElementById('progressSection').style.display = 'none';
+                alert('Error during scan: ' + error.message);
+            }
+        }
+        
+        // Parse endpoints from YAML text (simplified version)
+        function parseEndpointsFromYaml(yamlText) {
+            // This is a simplified parser - in a real app, use a proper YAML library
+            const endpoints = [];
+            const lines = yamlText.split('\n');
+            let currentEndpoint = null;
+            
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                
+                if (trimmedLine.startsWith('- name:')) {
+                    if (currentEndpoint) {
+                        endpoints.push(currentEndpoint);
+                    }
+                    currentEndpoint = { name: trimmedLine.match(/name:\s*"?(.*?)"?\s*$/)[1] };
+                } else if (trimmedLine.startsWith('method:') && currentEndpoint) {
+                    currentEndpoint.method = trimmedLine.match(/method:\s*(.*)/)[1];
+                } else if (trimmedLine.startsWith('url:') && currentEndpoint) {
+                    currentEndpoint.url = trimmedLine.match(/url:\s*"?(.*?)"?\s*$/)[1];
+                } else if (trimmedLine.startsWith('body:') && currentEndpoint) {
+                    try {
+                        currentEndpoint.body = JSON.parse(trimmedLine.match(/body:\s*(.*)/)[1]);
+                    } catch (e) {
+                        console.warn('Could not parse body:', trimmedLine);
+                    }
+                }
+            }
+            
+            if (currentEndpoint) {
+                endpoints.push(currentEndpoint);
+            }
+            
+            return endpoints;
+        }
+        
+        // Display scan results
+        function displayResults(result) {
+            // Hide progress and show results
+            document.getElementById('progressSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // Display raw output
+            document.getElementById('rawOutput').textContent = result.output || '';
+            
+            // Process and display mismatches
+            const mismatches = result.report?.matrix_mismatches || [];
+            document.getElementById('mismatchesBadge').textContent = mismatches.length;
+            
+            if (mismatches.length > 0) {
+                document.getElementById('noMismatchesMessage').style.display = 'none';
+                const mismatchesHtml = mismatches.map(m => `
+                    <div class="card finding-card mb-3 mismatch-row">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-2">
+                                    <span class="badge bg-primary role-badge">${m.role}</span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>${m.endpoint}</strong>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge bg-${m.expected === 'allow' ? 'success' : 'danger'}">
+                                        Expected: ${m.expected}
+                                    </span>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge bg-${m.actual === 'allow' ? 'success' : 'danger'}">
+                                        Actual: ${m.actual}
+                                    </span>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge bg-info">HTTP ${m.status}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('mismatchesList').innerHTML = mismatchesHtml;
+            } else {
+                document.getElementById('noMismatchesMessage').style.display = 'block';
+                document.getElementById('mismatchesList').innerHTML = '';
+            }
+            
+            // Process and display differential findings
+            const differentialFindings = result.report?.differential_findings || [];
+            document.getElementById('differentialBadge').textContent = differentialFindings.length;
+            
+            if (differentialFindings.length > 0) {
+                document.getElementById('noDifferentialMessage').style.display = 'none';
+                const differentialHtml = differentialFindings.map(f => `
+                    <div class="card finding-card mb-3">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6>${f.endpoint}</h6>
+                                    <p class="text-muted mb-1">${f.reason}</p>
+                                    <small>Roles compared: ${f.roles_compared.join(', ')}</small>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge bg-${f.severity === 'high' ? 'danger' : f.severity === 'medium' ? 'warning' : 'info'}">
+                                        ${f.severity.toUpperCase()}
+                                    </span>
+                                </div>
+                                <div class="col-md-2">
+                                    <span class="badge bg-secondary">DIFF</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                document.getElementById('differentialList').innerHTML = differentialHtml;
+            } else {
+                document.getElementById('noDifferentialMessage').style.display = 'block';
+                document.getElementById('differentialList').innerHTML = '';
+            }
+            
+            // Display summary if available
+            if (result.report && result.success) {
+                document.getElementById('summarySection').style.display = 'flex';
+                
+                // These values would come from the actual report structure
+                // For now, we'll calculate from our processed data
+                const rolesSet = new Set(mismatches.map(m => m.role));
+                document.getElementById('testedRoles').textContent = rolesSet.size;
+                
+                const endpointsSet = new Set(mismatches.map(m => m.endpoint));
+                document.getElementById('testedEndpoints').textContent = endpointsSet.size;
+                
+                document.getElementById('totalChecks').textContent = mismatches.length;
+                document.getElementById('mismatchesCount').textContent = mismatches.length;
+            }
+        }
+    </script>
+</body>
+</html>
